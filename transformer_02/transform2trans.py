@@ -322,11 +322,13 @@ print("validation data:")
 # x validation
 val_source.dict_chars = source.dict_chars
 x_val = val_source.split_n_count(False)
+val_source.maxlen = source.maxlen
 x_val_pad = val_source.padding(x_val, source.maxlen)
 del x_val
 # y validation
 val_target.dict_chars = target.dict_chars
 y_val = val_target.split_n_count(False)
+val_target.maxlen = target.maxlen
 y_val_pad = val_target.padding(y_val, target.maxlen)
 y_val_pad_shift = val_target.padding_shift(y_val)
 del y_val
