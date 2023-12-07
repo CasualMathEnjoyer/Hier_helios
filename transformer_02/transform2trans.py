@@ -23,9 +23,9 @@ print("seed = ", a)
 
 # TODO : plan
 # check if data is processed correctly
-# 1 implement masking for lstm
-# 2 make easily switchable lstm here
-# see if it work
+# 1 implement masking for lstm           DONE
+# 2 make easily switchable lstm here     DONE
+# see if it work                         DONE
 # fix precission
 
 # celkem skoro 68 tisic slov
@@ -34,25 +34,27 @@ print("seed = ", a)
 # from model_file import model_func
 from model_file_LSTM import model_func
 
-# model_file_name = "transform2seq_1"
-# training_file_name = "../data/src-sep-train.txt"
-# target_file_name = "../data/tgt-train.txt"
-# # validation_file_name = "../data/src-sep-val.txt"
-# ti_file_name = "../data/src-sep-test.txt"  # test input file
-# tt_file_name = "../data/tgt-test.txt"  # test target
-# sep = ' '
-# mezera = '_'
-# end_line = '\n'
+model_file_name = "transform2seq_1"
 
-model_file_name = "transform2seq_fr-eng_3LSTM"
-training_file_name = "../data/smallvoc_fr_.txt"
-target_file_name = "../data/smallvoc_en_.txt"
-# validation_file_name = "../data/src-sep-val.txt"
-ti_file_name = "../data/smallervoc_fr_.txt"  # test input file
-tt_file_name = "../data/smallervoc_en_.txt"  # test target
+training_file_name = "../data/src-sep-train.txt"
+target_file_name = "../data/tgt-train.txt"
+validation_file_name_src = "../data/src-sep-val.txt"
+validation_file_name_tgt = "../data/tgt-val.txt"
+ti_file_name = "../data/src-sep-test.txt"  # test input file
+tt_file_name = "../data/tgt-test.txt"  # test target
 sep = ' '
 mezera = '_'
 end_line = '\n'
+
+# model_file_name = "transform2seq_fr-eng_3LSTM"
+# training_file_name = "../data/smallvoc_fr_.txt"
+# target_file_name = "../data/smallvoc_en_.txt"
+# # validation_file_name = ""
+# ti_file_name = "../data/smallervoc_fr_.txt"  # test input file
+# tt_file_name = "../data/smallervoc_en_.txt"  # test target
+# sep = ' '
+# mezera = '_'
+# end_line = '\n'
 
 new = 0
 
@@ -75,7 +77,6 @@ class Data():
         self.sep = sep
         self.space = mezera
         self.end_line = end_line
-
     def array_to_token(self, input_array): # takes array returns the max index
         if input_array.size == 0:
             # Handle empty array case
@@ -107,7 +108,6 @@ class Data():
         # print("value.shape=", value.shape)
         # print("valid.shape=", valid_shift.shape)
         # valid jsou tokeny -> one hot
-
 
         assert sample_len == len(valid_shift)
         dim = len(valid_shift[0])
@@ -288,11 +288,19 @@ print()
 print("data preparation...")
 source = Data(sep, mezera, end_line)
 target = Data(sep, mezera, end_line)
+val_source = Data(sep, mezera, end_line)
+val_target = Data(sep, mezera, end_line)
 with open(training_file_name, "r", encoding="utf-8") as f:  # with spaces
     source.file = f.read()
     f.close()
 with open(target_file_name, "r", encoding="utf-8") as ff:
     target.file = ff.read()
+    ff.close()
+with open(validation_file_name_src, "r", encoding="utf-8") as ff:
+    val_source.file = ff.read()
+    ff.close()
+with open(validation_file_name_tgt, "r", encoding="utf-8") as ff:
+    val_target.file = ff.read()
     ff.close()
 
 print("first file:")
@@ -310,6 +318,21 @@ y_train_pad_shift_one = to_categorical(y_train_pad_shift)
 del y_train_pad_shift
 print()
 
+print("validation data:")
+# x validation
+val_source.dict_chars = source.dict_chars
+x_val = val_source.split_n_count(False)
+x_val_pad = val_source.padding(x_val, source.maxlen)
+del x_val
+# y validation
+val_target.dict_chars = target.dict_chars
+y_val = val_target.split_n_count(False)
+y_val_pad = val_target.padding(y_val, target.maxlen)
+y_val_pad_shift = val_target.padding_shift(y_val)
+del y_val
+y_val_pad_shift_one = to_categorical(y_val_pad_shift)
+del y_val_pad_shift
+
 # print(y_train_pad_one)
 # print()
 # print(x_train_pad.shape)
@@ -325,15 +348,15 @@ else:
     model = load_model_mine(model_file_name)
 
 model.compile(optimizer="adam", loss="categorical_crossentropy",
-              metrics=["accuracy", F1_score])
+              metrics=["accuracy"])
 model.summary()
 print()
 # --------------------------------- TRAINING ------------------------------------------------------------------------
 # TODO shuffle ?
 for i in range(repeat):
     history = model.fit(
-        (x_train_pad, y_train_pad), y_train_pad_shift_one, batch_size=batch_size, epochs=epochs)
-        # validation_data=(x_valid_tokenized, y_valid))
+        (x_train_pad, y_train_pad), y_train_pad_shift_one, batch_size=batch_size, epochs=epochs,
+        validation_data=((x_val_pad, y_val_pad), y_val_pad_shift_one))
     model.save(model_file_name)
     K.clear_session()
 print()
