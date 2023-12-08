@@ -59,7 +59,7 @@ end_line = '\n'
 new = 0
 
 batch_size = 128
-epochs = 2
+epochs = 5
 repeat = 2  # full epoch_num=epochs*repeat
 
 class Data():
@@ -123,7 +123,7 @@ class Data():
                 token2 = self.array_to_token(value[i][j])
                 value_one[i][j][token2] = 1
                 # print(rev_dict[token1], "/",  rev_dict[token2], end=' ')
-                print(rev_dict[token2], end=' ')  # the translation part
+                # print(rev_dict[token2], end= " ")  # the translation part
             print()
 
         # SOME STATISTICS
@@ -205,7 +205,7 @@ class Data():
                 input_list_padded[i] = np.array(line[1:] + [0 for i in range(self.maxlen - len(line) + 1)])
             else:
                 pass
-        # print(input_list_padded)
+        print(input_list_padded)
         return input_list_padded
 
 # precision = to minimise false alarms
