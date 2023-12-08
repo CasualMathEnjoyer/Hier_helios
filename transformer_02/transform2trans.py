@@ -98,18 +98,21 @@ class Data():
         model = load_model_mine(model_name)
         rev_dict = self.create_reverse_dict(self.dict_chars)
 
-        # TODO - tryal of bettern encoder input
-        # encoder_input = model.get_layer('input_1')
-        # encoder_masking = model.get_layer('masking')
-        # encoder_embedding = model.get_layer('embedding')
-        # encoder_output = model.get_layer('lstm').output
-        # encoder_model = keras.Model(inputs=encoder_input, outputs=encoder_output)
-        # encoder_model.summary()
+        # TODO - trial of bettern encoder input
+        encoder_input = model.get_layer('input_1')
+        encoder_masking = model.get_layer('masking')
+        encoder_embedding = model.get_layer('embedding')
+        encoder_output = model.get_layer('lstm').output
+        encoder_model = keras.Model(inputs=encoder_input.input, outputs=encoder_output)
+        encoder_model.summary()
         # assert 0
-        # decoder_input = encoder_model.predict(sample)
-        # value = model.predict((sample, decoder_input))
+        decoder_input, _, _ = encoder_model.predict(sample)
+        print(decoder_input.shape)
+        print(valid.shape)
+        assert 0
+        value = model.predict((sample, decoder_input))
 
-        value = model.predict((sample, valid))  # TODO - putting correct values in decoder_input
+        # value = model.predict((sample, valid))  # TODO - putting correct values in decoder_input
 
         assert sample_len == len(valid_shift)
 
