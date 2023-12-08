@@ -16,10 +16,6 @@ a = random.randrange(0, 2**32 - 1)
 set_random_seed(a)
 print("seed = ", a)
 
-#todo : When you use padding, you should always do masking on the output
-# and other places where it is relevant (i.e., when computing the attention
-# distribution in attention), which ensures no gradient gets propagated
-# from the "non-existing" padding positions.
 
 # TODO : plan
 # check if data is processed correctly
@@ -34,33 +30,32 @@ print("seed = ", a)
 # from model_file import model_func
 from model_file_LSTM import model_func
 
-model_file_name = "transform2seq_1"
-
-training_file_name = "../data/src-sep-train.txt"
-target_file_name = "../data/tgt-train.txt"
-validation_file_name_src = "../data/src-sep-val.txt"
-validation_file_name_tgt = "../data/tgt-val.txt"
-ti_file_name = "../data/src-sep-test.txt"  # test input file
-tt_file_name = "../data/tgt-test.txt"  # test target
-sep = ' '
-mezera = '_'
-end_line = '\n'
-
-# model_file_name = "transform2seq_fr-eng_3LSTM"
-# training_file_name = "../data/smallvoc_fr_.txt"
-# target_file_name = "../data/smallvoc_en_.txt"
-# # validation_file_name = ""
-# ti_file_name = "../data/smallervoc_fr_.txt"  # test input file
-# tt_file_name = "../data/smallervoc_en_.txt"  # test target
+# model_file_name = "transform2seq_1"
+# training_file_name = "../data/src-sep-train.txt"
+# target_file_name = "../data/tgt-train.txt"
+# validation_file_name_src = "../data/src-sep-val.txt"
+# validation_file_name_tgt = "../data/tgt-val.txt"
+# ti_file_name = "../data/src-sep-test.txt"  # test input file
+# tt_file_name = "../data/tgt-test.txt"  # test target
 # sep = ' '
 # mezera = '_'
 # end_line = '\n'
 
+model_file_name = "transform2seq_fr-eng_3LSTM"
+training_file_name = "../data/smallvoc_fr_.txt"
+target_file_name = "../data/smallvoc_en_.txt"
+# validation_file_name = ""
+ti_file_name = "../data/smallervoc_fr_.txt"  # test input file
+tt_file_name = "../data/smallervoc_en_.txt"  # test target
+sep = ' '
+mezera = '_'
+end_line = '\n'
+
 new = 0
 
 batch_size = 128
-epochs = 5
-repeat = 2  # full epoch_num=epochs*repeat
+epochs = 1
+repeat = 0  # full epoch_num=epochs*repeat
 
 class Data():
     embed_dim = 32  # Embedding size for each token
@@ -102,16 +97,22 @@ class Data():
     def model_test(self, sample, valid_shift, valid, model_name, sample_len):  # input = padded array of tokens
         model = load_model_mine(model_name)
         rev_dict = self.create_reverse_dict(self.dict_chars)
-        value = model.predict((sample, valid))  # has to be in the shape of the input for it to predict
-        # TODO -putting the correct ones there - not a good idea
-        # TODO - do we put just the validated stuff in it or do we want to unpack the encoder?
-        # print("value.shape=", value.shape)
-        # print("valid.shape=", valid_shift.shape)
-        # valid jsou tokeny -> one hot
+
+        # TODO - tryal of bettern encoder input
+        # encoder_input = model.get_layer('input_1')
+        # encoder_masking = model.get_layer('masking')
+        # encoder_embedding = model.get_layer('embedding')
+        # encoder_output = model.get_layer('lstm').output
+        # encoder_model = keras.Model(inputs=encoder_input, outputs=encoder_output)
+        # encoder_model.summary()
+        # assert 0
+        # decoder_input = encoder_model.predict(sample)
+        # value = model.predict((sample, decoder_input))
+
+        value = model.predict((sample, valid))  # TODO - putting correct values in decoder_input
 
         assert sample_len == len(valid_shift)
-        dim = len(valid_shift[0])
-        # print ("dim:", dim)
+
         value_one = np.zeros_like(value)
         valid_one = np.zeros_like(value)  # has to be value
         for i in range(sample_len):
@@ -123,7 +124,7 @@ class Data():
                 token2 = self.array_to_token(value[i][j])
                 value_one[i][j][token2] = 1
                 # print(rev_dict[token1], "/",  rev_dict[token2], end=' ')
-                # print(rev_dict[token2], end= " ")  # the translation part
+                print(rev_dict[token2], end= " ")  # the translation part
             print()
 
         # SOME STATISTICS
@@ -205,7 +206,7 @@ class Data():
                 input_list_padded[i] = np.array(line[1:] + [0 for i in range(self.maxlen - len(line) + 1)])
             else:
                 pass
-        print(input_list_padded)
+        # print(input_list_padded)
         return input_list_padded
 
 # precision = to minimise false alarms
@@ -265,21 +266,20 @@ def f1_precision_recall(y_true, y_pred):
     #
     # print(f'Multiclass F1 Score: {f1}')`
 
-def F1_score(y_true, y_pred): #taken from old keras source code  # TODO transform
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-    precision = true_positives / (predicted_positives + K.epsilon())
-    recall = true_positives / (possible_positives + K.epsilon())
-    f1_val = 2*(precision*recall)/(precision+recall+K.epsilon())
-    # print("precision:", precision.numpy(), "recall:", recall.numpy())
-    return f1_val
-
-    # return f1_score(y_true, y_pred, average=None)
+# def F1_score(y_true, y_pred): #taken from old keras source code  # TODO transform
+#     true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+#     possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+#     predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+#     precision = true_positives / (predicted_positives + K.epsilon())
+#     recall = true_positives / (possible_positives + K.epsilon())
+#     f1_val = 2*(precision*recall)/(precision+recall+K.epsilon())
+#     # print("precision:", precision.numpy(), "recall:", recall.numpy())
+#     return f1_val
+#
+#     # return f1_score(y_true, y_pred, average=None)
 def load_model_mine(model_name):
     from model_file import PositionalEmbedding, TransformerEncoder, TransformerDecoder
-    return keras.models.load_model(model_name, custom_objects={"F1_score": F1_score,
-                                                               'PositionalEmbedding': PositionalEmbedding,
+    return keras.models.load_model(model_name, custom_objects={'PositionalEmbedding': PositionalEmbedding,
                                                                'TransformerEncoder': TransformerEncoder,
                                                                'TransformerDecoder': TransformerDecoder
     })
@@ -288,20 +288,21 @@ print()
 print("data preparation...")
 source = Data(sep, mezera, end_line)
 target = Data(sep, mezera, end_line)
-val_source = Data(sep, mezera, end_line)
-val_target = Data(sep, mezera, end_line)
 with open(training_file_name, "r", encoding="utf-8") as f:  # with spaces
     source.file = f.read()
     f.close()
 with open(target_file_name, "r", encoding="utf-8") as ff:
     target.file = ff.read()
     ff.close()
-with open(validation_file_name_src, "r", encoding="utf-8") as ff:
-    val_source.file = ff.read()
-    ff.close()
-with open(validation_file_name_tgt, "r", encoding="utf-8") as ff:
-    val_target.file = ff.read()
-    ff.close()
+
+# val_source = Data(sep, mezera, end_line)
+# val_target = Data(sep, mezera, end_line)
+# with open(validation_file_name_src, "r", encoding="utf-8") as ff:
+#     val_source.file = ff.read()
+#     ff.close()
+# with open(validation_file_name_tgt, "r", encoding="utf-8") as ff:
+#     val_target.file = ff.read()
+#     ff.close()
 
 print("first file:")
 x_train = source.split_n_count(True)
@@ -318,22 +319,23 @@ y_train_pad_shift_one = to_categorical(y_train_pad_shift)
 del y_train_pad_shift
 print()
 
-print("validation data:")
-# x validation
-val_source.dict_chars = source.dict_chars
-x_val = val_source.split_n_count(False)
-val_source.maxlen = source.maxlen
-x_val_pad = val_source.padding(x_val, source.maxlen)
-del x_val
-# y validation
-val_target.dict_chars = target.dict_chars
-y_val = val_target.split_n_count(False)
-val_target.maxlen = target.maxlen
-y_val_pad = val_target.padding(y_val, target.maxlen)
-y_val_pad_shift = val_target.padding_shift(y_val)
-del y_val
-y_val_pad_shift_one = to_categorical(y_val_pad_shift)
-del y_val_pad_shift
+# print("validation data:")
+# # x validation
+# val_source.dict_chars = source.dict_chars
+# x_val = val_source.split_n_count(False)
+# val_source.maxlen = source.maxlen
+# x_val_pad = val_source.padding(x_val, source.maxlen)
+# del x_val
+# # y validation
+# val_target.dict_chars = target.dict_chars
+# y_val = val_target.split_n_count(False)
+# val_target.maxlen = target.maxlen
+# y_val_pad = val_target.padding(y_val, target.maxlen)
+# y_val_pad_shift = val_target.padding_shift(y_val)
+# del y_val
+# y_val_pad_shift_one = to_categorical(y_val_pad_shift)
+# del y_val_pad_shift
+
 
 # print(y_train_pad_one)
 # print()
@@ -354,11 +356,10 @@ model.compile(optimizer="adam", loss="categorical_crossentropy",
 model.summary()
 print()
 # --------------------------------- TRAINING ------------------------------------------------------------------------
-# TODO shuffle ?
 for i in range(repeat):
     history = model.fit(
-        (x_train_pad, y_train_pad), y_train_pad_shift_one, batch_size=batch_size, epochs=epochs,
-        validation_data=((x_val_pad, y_val_pad), y_val_pad_shift_one))
+        (x_train_pad, y_train_pad), y_train_pad_shift_one, batch_size=batch_size, epochs=epochs)
+        # validation_data=((x_val_pad, y_val_pad), y_val_pad_shift_one))
     model.save(model_file_name)
     K.clear_session()
 print()
