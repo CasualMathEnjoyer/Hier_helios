@@ -2,9 +2,9 @@
 ### Job Name
 #PBS -N python_script
 ### Required runtime
-#PBS -l walltime=00:10:00
+#PBS -l walltime=00:30:00
 ### Queue for submission
-#PBS -q student
+#PBS -q gpu_student
 
 ### Merge output and error files
 #PBS -j oe
@@ -19,7 +19,7 @@ cd $PBS_O_WORKDIR
 # Note that once activated, the Python version used when creating
 # the virtual environment is readily available, and the respective module
 # need not be loaded by means of "module load python/X.X.X".
-source env/bin/activate
+source ../H/bin/activate
 
 ### Run the application
-python transform2trans.py
+python3 transform2trans.py
