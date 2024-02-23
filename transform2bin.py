@@ -15,8 +15,6 @@ print("starting transform2bin")
 # TODO implement the K cross sections thing thing for data processing
 # TODO WINDOW fix data at the end of file - flip around?
 
-# TODO my testing F1 score is significantly lower than the traing one
-
 # check this library: https://github.com/evidentlyai/evidently
 
 a = random.randrange(0, 2**32 - 1)
@@ -37,25 +35,6 @@ set_random_seed(a)
 
 # v datasetu momentale 203 znaku zastoupeno pouze jednou
 
-# loss_function = "binary_focal_crossentropy"
-loss_function = "binary_crossentropy"
-model_file_name = "transform2bin"
-class_data = model_file_name + "_data.plk"
-
-training_file_name = "../data/src-sep-train.txt"
-validation_file_name = "../data/src-sep-val.txt"
-test_file_name = "../data/src-sep-test.txt"
-sep = ' '
-mezera = '_'
-endline = "\n"
-
-
-# model_file_name = "transform2bin_french"
-# training_file_name = "../data/smallvoc_fr.txt"
-# validation_file_name = "../data/smallvoc_fr.txt"
-# test_file_name = "../data/smallvoc_fr.txt"
-
-# class_data = "data.plk"
 # model_file_name = "model_to_delete"
 # training_file_name = "../data/en_train.txt"
 # validation_file_name = "../data/en_val.txt"
@@ -64,19 +43,46 @@ endline = "\n"
 # mezera = '_'
 # endline = "\n"
 
+model_file_name = "t2b_emb128"
+training_file_name = "../data/src-sep-train.txt"
+validation_file_name = "../data/src-sep-val.txt"
+test_file_name = "../data/src-sep-test.txt"
+sep = ' '
+mezera = '_'
+endline = "\n"
+
+folder_path = model_file_name + "_data"
+class_data = folder_path + "/" + model_file_name + "_data.plk"
+history_dict = folder_path + "/" + model_file_name + '_HistoryDict'
+
 new = 1  # whether it creates a model (1) or loads a model (0)
 new_class_d = 1
 
+# TRAINING PARAMETERS
 batch_size = 128
-epochs = 5
-repeat = 20  # full epoch_num=epochs*repeat
+epochs = 1
+repeat = 0  # full epoch_num=epochs*repeat
 
+optimizer = "adam"
+# loss_function = "binary_focal_crossentropy"
+loss_function = "binary_crossentropy"
+
+
+# HYPER PARAMETERS:
+embed_dim = 128
+num_heads = 2
+ff_dim = 64         # Hidden layer size in feed forward network inside transformer
+maxlen = 128
+step = 64
+
+
+# 53,377 parametru
 class Data():
-    vocab_size = 0      # gets inicialised to the size of dict - if i want to extend with more data
-                        # i need to have initially greater vocab size
-    embed_dim = 32      # Embedding size for each token
-    num_heads = 2       # Number of attention heads
-    ff_dim = 64         # Hidden layer size in feed forward network inside transformer
+    vocab_size = 0         # gets inicialised to the size of dict - if i want to extend with more data
+                           # i need to have initially greater vocab size
+    embed_dim = embed_dim  # Embedding size for each token
+    num_heads = num_heads  # Number of attention heads
+    ff_dim = ff_dim        # Hidden layer size in feed forward network inside transformer
 
     final_file, valid_file = '', ''
 
@@ -87,9 +93,9 @@ class Data():
 
     dict_chars = {}
 
-    step = 64
+    step = step
 
-    maxlen = 128
+    maxlen = maxlen
 
     def __init__(self, sep, mezera, endline):
         super().__init__()
@@ -363,6 +369,8 @@ def process_data():
 
     return d
 def model_run():
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
     if new_class_d:
         print("data preparation...")
         d = process_data()
@@ -377,9 +385,10 @@ def model_run():
     else:
         model = load_model_mine(model_file_name)
 
-    model.compile(optimizer="adam",
+    model.compile(optimizer=optimizer,
                   loss=loss_function,
                   metrics=["accuracy", "Precision", "Recall", F1_score])
+    model.summary()
 
     # --------------------------------- TRAINING ------------------------------------------------------------------------
     def get_history_dict(dict_name):
@@ -392,11 +401,11 @@ def model_run():
                 else:
                     raise Exception("Dont do this")
             else:
-                with open(model_file_name + '_HistoryDict', "rb") as file_pi:
+                with open(dict_name, "rb") as file_pi:
                     old_dict = pickle.load(file_pi)
                     return old_dict
         return {}
-    old_dict = get_history_dict(model_file_name + '_HistoryDict')
+    old_dict = get_history_dict(history_dict)
 
     # FITTING
     for i in range(repeat):
@@ -409,7 +418,7 @@ def model_run():
         # save model history
         new_dict = join_dicts(old_dict, history.history)
         old_dict = new_dict
-        with open(model_file_name + '_HistoryDict', 'wb') as file_pi:
+        with open(history_dict, 'wb') as file_pi:
             pickle.dump(new_dict, file_pi)
     # ---------------------------------- TESTING ------------------------------------------------------------------------
     print("testing...")
@@ -433,7 +442,7 @@ def model_run():
     x_valid_tokenized = d.tokenize(x_test)
     prediction, metrics = d.model_test(x_valid_tokenized, y_test, model_file_name)
     # print(prediction)
-    d.print_separation(x_test, prediction)
+    # d.print_separation(x_test, prediction)
 
 if __name__ == "__main__":
     model_run()

@@ -2,7 +2,6 @@ import tensorflow as tf
 from tensorflow import keras
 from keras.layers import Masking, Input, TimeDistributed, Dense, Layer, Embedding, Dropout
 from keras.layers import MultiHeadAttention, LayerNormalization
-
 class TransformerBlock(Layer):
     def __init__(self, embed_dim, num_heads, ff_dim, drop_rate=0.1):
         super().__init__()
