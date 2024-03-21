@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import keras
+import pickle
 
 import sys
 import os
@@ -61,6 +62,8 @@ from model_file_BiLSTM import model_func, load_and_split_model, encoder_state_tr
 # end_line = '\n'
 
 model_file_name = "models/transform2seq_LSTM_em32_dim64"
+history_dict = model_file_name + '_HistoryDict'
+print(model_file_name)
 # model_file_name = "transform2seq_LSTM_delete"
 # train_in_file_name = "../data/smallvoc_fr_.txt"
 # train_out_file_name = "../data/smallvoc_en_.txt"
@@ -97,7 +100,7 @@ end_line = '\n'
 new = 1
 
 batch_size = 256
-epochs = 1
+epochs = 0
 repeat = 1 # full epoch_num=epochs*repeat
 
 # precision = to minimise false alarms
@@ -206,6 +209,46 @@ model.compile(optimizer="adam", loss="categorical_crossentropy",
               metrics=["accuracy"])
 model.summary()
 print()
+
+
+def get_history_dict(dict_name):
+    dict_exist = os.path.isfile(dict_name)
+    if dict_exist:
+        if new:
+            q = input(f"Dict with the name {dict_name} exist but we create a new one, ok?")
+            if q == "ok":
+                return {}
+            else:
+                raise Exception("Dont do this")
+        else:
+            with open(dict_name, "rb") as file_pi:
+                old_dict = pickle.load(file_pi)
+                return old_dict
+    return {}
+
+
+old_dict = get_history_dict(history_dict)
+def join_dicts(dict1, dict2):
+    dict = {}
+    if dict1 == {}:
+        dict = dict2
+
+    if dict1.keys() == dict2.keys():
+        pass
+    else:
+        print(dict1.keys(), " != ", dict2.keys())
+
+    for i in range(len(dict1.keys())):
+        history_list = list(dict1.keys())
+        # print(history_list[i])
+        ar = []
+        for item in dict1[history_list[i]]:
+            ar.append(item)
+        for item in dict2[history_list[i]]:
+            ar.append(item)
+        dict[history_list[i]] = ar
+    # print(dict)
+    return dict
 # --------------------------------- TRAINING ------------------------------------------------------------------------
 for i in range(repeat):
     history = model.fit(
@@ -214,6 +257,11 @@ for i in range(repeat):
     model.save(model_file_name)
     # model.save_weights(model_file_name + ".h5")
     K.clear_session()
+    # save model history
+    new_dict = join_dicts(old_dict, history.history)
+    old_dict = new_dict
+    with open(history_dict, 'wb') as file_pi:
+        pickle.dump(new_dict, file_pi)
 print()
 # ---------------------------------- TESTING ------------------------------------------------------------------------
 def model_test_old(self, sample, valid_shift, valid, model_name):  # input = padded array of tokens
@@ -343,7 +391,7 @@ with open(test_out_file_name, "r", encoding="utf-8") as f:  # with spaces
     test_y.file = f.read()
     f.close()
 
-sample_limit = 4
+sample_limit = 2000
 test_x.dict_chars = source.dict_chars
 x_test = test_x.split_n_count(False)[:sample_limit]
 assert sample_limit == len(x_test)
