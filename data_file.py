@@ -8,6 +8,9 @@ class Data():
     dict_chars = {}
     reverse_dict = {}
     vocab_size = 0
+    padded = []
+    padded_shift = []
+    padded_shift_one = []
 
     def __init__(self, sep, mezera, end_line):
         super().__init__()
