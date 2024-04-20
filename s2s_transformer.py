@@ -4,6 +4,8 @@ import keras
 
 import sys
 import os
+import pickle
+from tqdm import tqdm
 
 from keras.utils import set_random_seed
 from keras.utils import to_categorical
@@ -14,6 +16,7 @@ from data_file import Data
 from data_preparation import *
 
 new = 0
+caching = 1
 
 batch_size = 1  # 256
 epochs = 20
@@ -23,6 +26,7 @@ print("starting transform2seq")
 
 model_file_name = "models/transform_smol_delete"
 history_dict = model_file_name + '_HistoryDict'
+testing_cache_filename = model_file_name + '_TestingCache'
 print(model_file_name)
 
 h = 2          # Number of self-attention heads
@@ -42,7 +46,6 @@ print("seed = ", a)
 from model_file_2 import model_func
 from model_file_2 import *  # for loading
 
-
 def load_model_mine(model_name):
     custom_objects = {
         'EncoderLayer': EncoderLayer,
@@ -58,6 +61,7 @@ def load_model_mine(model_name):
     return keras.models.load_model(model_name, custom_objects=custom_objects)
 
 def save_model_info(model_name, ):
+    # its basically metadata so i can continue testing
     pass
 
 # ---------------------------- DATA PROCESSING -------------------------------------------------
@@ -82,6 +86,8 @@ print()
 # exit()
 # --------------------------------- TRAINING ------------------------------------------------------------------------
 print("training")
+if repeat*epochs == 0:
+    print("Skipping training")
 for i in range(repeat):
     history = model.fit(
         (source.padded, target.padded), target.padded_shift_one,
@@ -103,202 +109,120 @@ print()
 
 
 # ---------------------------------- TESTING ------------------------------------------------------------------------
-def model_test_old(self, sample, valid_shift, valid, model_name):  # input = padded array of tokens
-    model = load_model_mine(model_name)
-    sample_len = len(sample)
-    value = model.predict((sample, valid))  # has to be in the shape of the input for it to predict
-
-    dict_chars = self.dict_chars
-    rev_dict = self.create_reverse_dict(dict_chars)
-    assert sample_len == len(valid_shift)
-
-    value_one = np.zeros_like(value)
-    valid_one = np.zeros_like(value)  # has to be value
-    for i in range(sample_len):
-        for j in range(len(value[i])):
-            # input one-hot-ization
-            token1 = int(valid_shift[i][j])
-            valid_one[i][j][token1] = 1
-            # output tokenization
-            token2 = self.array_to_token(value[i][j])
-            value_one[i][j][token2] = 1
-            # print(rev_dict[token1], "/",  rev_dict[token2], end=' ')
-            print(rev_dict[token2], end=' ')  # the translation part
-        print()
-
-    value_tokens = self.one_hot_to_token(value_one)
-
-    # SOME STATISTICS
-    num_sent = len(value)
-    sent_len = len(value[0])
-    embed = len(value[0][0])
-    val_all = 0
-    for i in range(num_sent):
-        # print("prediction:", self.one_hot_to_token([value[i]]))
-        # print("true value:", self.one_hot_to_token([valid_one[i]]))
-        val = 0
-        for j in range(sent_len):
-            for k in range(embed):
-                val += abs(value_one[i][j][k] - valid_one[i][j][k])
-        # print("difference:", val, "accuracy:", 1-(val/sent_len))
-        val_all += val
-    print("accuracy all:", round(1-(val_all/(sent_len*num_sent)), 2))  # formating na dve desetina mista
-    print("f1 prec rec :", m.f1_precision_recall(target, value_tokens, valid_shift))
-    # TODO self or target??
-def model_test_new(encoder, decoder, x_test_pad, y_test_pad, rev_dict):
-    decoder_output_all = []
-
-    x_sent_len = x_test_pad[0].size
-    y_sent_len = y_test_pad[0].size
-    x_test_pad = x_test_pad.reshape(samples, 1, x_sent_len)  # reshape so encoder takes just one sentence
-    y_test_pad = y_test_pad.reshape(samples, 1, y_sent_len)  # and is not angry about dimensions
-    # print("y_test_pad_shape trans", y_test_pad.shape)
-    print("printing stopped")
-    # ------ stop printing --------
-    old_stdout = sys.stdout
-    sys.stdout = open(os.devnull, "w")
-
-    for x in range(len(y_test_pad)):  # for veta in test data len(y_test_pad)
-        # ENCODER
-        encoder_output = encoder.predict(x_test_pad[x])  # get encoding for first sentence
-        # print("encoder dims:", len(encoder_output), len(encoder_output[0]))
-
-        # DECODER
-        decoder_output = []
-        letter = np.array([[1]])  # the <bos> token, should be shape (1,1)
-        decoder_output_throughts = encoder_state_transform(encoder_output)
-
-        for i in range(len(y_test_pad[x][0])):  # x-ta veta ma shape (1, neco), proto [0]
-            decoder_output_word = decoder.predict([letter] + decoder_output_throughts)
-
-            decoder_output_throughts = decoder_output_word[1:]
-            decoder_output_word = decoder_output_word[0]  # select just the content
-            decoder_output_word = decoder_output_word[0][0]  # first sentence first word
-
-            token = test_y.array_to_token(decoder_output_word)
-
-            letter = np.array([[token]])
-            decoder_output.append(int(token))
-
-        decoder_output_all.append(decoder_output)
-
-    # -------- start printing ----------
-    sys.stdout = old_stdout
-
-    # SOME STUFF AS IN CLASS
-    valid = y_test_pad  # = y_test_pad_shape trans (samples_len, 1, 90)
-    predicted = decoder_output_all
-    predicted = np.array(predicted)
-
-    # print("decoder output sent, num:", len(decoder_output_all))
-    # print("valid.shape", valid.shape)
-    # print("predicted.shape", predicted.shape)
-
-    # PRINT OUTPUT
-    output_string = ''
-    for i in range(samples):
-        for j in range(y_sent_len):
-            letter = rev_dict[predicted[i][j]]
-            output_string += letter
-            output_string += sep
-            # print(letter, end=' ')  # the translation part
-        # print()
-        output_string += "\n"
-    print(output_string)
-    # it is not the best - implement cosine distance instead?                 TODO different then accuracy
-    #                                                                         todo it be quite slow
-    character_level_acc = m.calc_accuracy(predicted, valid, samples, y_sent_len)
-    print("character accuracy:", character_level_acc)
-    print("f1 prec rec :", m.f1_precision_recall(target, predicted, valid))   # needs to be the target file
-    return output_string
-
-print("testing...")
-print("testing data preparation")
-
-test_x = Data(sep, mezera, end_line)
-with open(test_in_file_name, "r", encoding="utf-8") as f:  # with spaces
-    test_x.file = f.read()
-    f.close()
-test_y = Data(sep, mezera, end_line)
-with open(test_out_file_name, "r", encoding="utf-8") as f:  # with spaces
-    test_y.file = f.read()
-    f.close()
-
-samples = 3
-test_x.dict_chars = source.dict_chars
-x_test = test_x.split_n_count(False)[:samples]
-x_test_pad = test_x.padding(x_test, source.maxlen)
-
-test_y.dict_chars = target.dict_chars
-y_test = test_y.split_n_count(False)[:samples]
-y_test_pad = test_y.padding(y_test, target.maxlen)
-y_test_pad_shift = test_y.padding_shift(y_test, target.maxlen)
-
-assert len(x_test) == len(y_test)
-
-#  OLD TESTING
-print("Testing")
-
-# output = np.zeros((1, target.maxlen))
-# output[:, 0] = 1
-output = [[1] for _ in y_test_pad]
-print(output)
-print(len(output))
-print(np.array(output).shape)
-j = 0
-
-# print(x_test_pad[0])
-# print(y_test_pad[0])
-# print(y_test_pad_shift[0])
-
-while j < len(y_test_pad[:samples]):
-    print(j)
+def translate(model, encoder_input, output_maxlen):
+    output_line = [1]
     i = 1
-    # print(x_test_pad[j])
-    while i < target.maxlen:
-        # old_stdout = sys.stdout
-        # sys.stdout = open(os.devnull, "w")
-        # print(np.array([output[j]]))
-        # print(np.array([x_test_pad[j]]))
-        prediction = model.call((np.array([x_test_pad[j]]), np.array([output[j]])), training=False)
-        # sys.stdout = old_stdout
-
-        # Get the probabilities for the next token
+    while i < output_maxlen:
+        prediction = model.call((encoder_input, np.array([output_line])), training=False)
         next_token_probs = prediction[0, -1, :]  # Prediction is shape (1, i, 63)
-
-        # Sample the next token based on the predicted probabilities
         # next_token = np.random.choice(len(next_token_probs), p=next_token_probs)
         next_token = np.argmax(next_token_probs)
-        # print(next_token)
-
         if next_token == 0:
-            print(output[j])
-            print("END")
             break
         # Update the output sequence with the sampled token
-        # output[j, i] = next_token
-        output[j].append(next_token)
-        # print(output)
-        # print(i, np.argmax(prediction[j][i]))
+        output_line.append(next_token)
         i += 1
-    j += 1
+    return output_line
 
+print("Testing data preparation")
+test_source = Data(sep, mezera, end_line)
+test_target = Data(sep, mezera, end_line)
+with open(test_in_file_name, "r", encoding="utf-8") as f:  # with spaces
+    test_source.file = f.read()
+    f.close()
+with open(test_out_file_name, "r", encoding="utf-8") as f:  # with spaces
+    test_target.file = f.read()
+    f.close()
 
-valid = list(target.padded.astype(np.int32))
+samples = 5
+test_source.dict_chars = source.dict_chars
+x_test = test_source.split_n_count(False)[:samples]
+test_source.padded = test_source.padding(x_test, source.maxlen)
 
-print("prediction:", output)
-# print("target:", valid)
+test_target.dict_chars = target.dict_chars
+y_test = test_target.split_n_count(False)[:samples]
+test_target.padded = test_target.padding(y_test, target.maxlen)
+test_target.padded_shift = test_target.padding_shift(y_test, target.maxlen)
+
+valid = list(test_target.padded.astype(np.int32))
+
+assert len(x_test) == len(y_test)
+del x_test, y_test
+
+output = []
+
+print("Testing...")
+if caching:
+    print("Caching is ON")
+    tested_dict = load_cached_dict(testing_cache_filename)
+else:
+    print("Caching is OFF")
+# Testing Loop
+for j in tqdm(range(len(test_source.padded))):
+    i = 1
+    encoder_input = np.array([test_source.padded[j]])
+    if caching:
+        encoder_cache_code = tuple(encoder_input[0])  # cos I can't use np array or list as a hash, [0] removes [around]
+        if encoder_cache_code in tested_dict:
+            output_line = tested_dict[encoder_cache_code]
+        else:
+            output_line = translate(model, encoder_input, target.maxlen)
+            tested_dict[encoder_cache_code] = output_line
+    else:
+        output_line = translate(model, encoder_input, target.maxlen)
+    output.append(output_line)
+# End Testing Loop
+if caching:
+    cache_dict(tested_dict, testing_cache_filename)
 
 print()
 
+
+# PRETY TESTING PRINTING
+rev_dict = test_target.create_reverse_dict(test_target.dict_chars)
+
 mistake_count = 0
+all_chars = 0
+line_lengh = len(valid[0])
+output_text, valid_text = [], []  # i could take the valid text from y_test but whatever
 for j in range(len(list(output))):
-    for i in range(len(list(output[j]))):
-        if output[j] == 2:
-            break
-        if valid[j][i] == 2 or i > len(valid[j]) - 1:
-            break
+    print("test line number:", j)
+    predicted_line = np.array(output[j])
+    valid_line = np.array(valid[j])
+    zero_index = np.argmax(valid_line == 0)
+    valid_line = valid_line[:zero_index]
+    min_size = min([predicted_line.shape[0], valid_line.shape[0]])
+    max_size = max([predicted_line.shape[0], valid_line.shape[0]])
+
+    mistake_in_line = 0
+    if min_size != max_size:
+        print("Lines are not the same length")
+        mistake_in_line += (max_size - min_size)
+
+    for i in range(min_size):
         if valid[j][i] != output[j][i]:
-            mistake_count += 1
-print(mistake_count)
+            mistake_in_line += 1
+
+    output_text_line, valid_text_line = "", ""
+    for char in predicted_line:
+        output_text_line += (rev_dict[char] + sep)
+    for char in valid_line:
+        valid_text_line += (rev_dict[char] + sep)
+    output_text.append(output_text_line)
+    valid_text.append(valid_text_line)
+    print("prediction: ", output_text_line)
+    print("valid     : ", valid_text_line)
+    print("mistakes  : ", mistake_in_line)
+    print()
+    mistake_count += mistake_in_line
+    all_chars += max_size
+
+pred_words_split_mezera, valid_words_split_mezera = [], []
+for i in range(len(output_text)):
+    pred_words_split_mezera.append(output_text[i].split(mezera))
+    valid_words_split_mezera.append(valid_text[i].split(mezera))
+
+word_accuracy = m.on_words_accuracy(pred_words_split_mezera, valid_words_split_mezera)
+print("word_accuracy:", round(word_accuracy, 5))
+print("character accuracy:", round(1 - (mistake_count / all_chars), 5)*100, "%")
 
