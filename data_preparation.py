@@ -24,18 +24,31 @@ from data_file import Data
 # test_out_file_name = "../data/en_test.txt"
 
 
-train_in_file_name = "../data/src-sep-train.txt"
-train_out_file_name = "../data/tgt-train.txt"
-val_in_file_name = "../data/src-sep-val.txt"
-val_out_file_name = "../data/tgt-val.txt"
-test_in_file_name = "../data/src-sep-test.txt"
-test_out_file_name = "../data/tgt-test.txt"
+# train_in_file_name = "../data/src-sep-train.txt"
+# train_out_file_name = "../data/tgt-train.txt"
+# val_in_file_name = "../data/src-sep-val.txt"
+# val_out_file_name = "../data/tgt-val.txt"
+# test_in_file_name = "../data/src-sep-test.txt"
+# test_out_file_name = "../data/tgt-test.txt"
+train_in_file_name = "data/src-sep-train.txt"
+train_out_file_name = "data/tgt-train.txt"
+val_in_file_name = "data/src-sep-val.txt"
+val_out_file_name = "data/tgt-val.txt"
+test_in_file_name = "data/src-sep-test.txt"
+test_out_file_name = "data/tgt-test.txt"
+
 # train_in_file_name = "../data/src-sep-train-short.txt"
 # train_out_file_name = "../data/tgt-train-short.txt"
 # val_in_file_name = "../data/src-sep-train-short.txt"
 # val_out_file_name = "../data/tgt-train-short.txt"
 # test_in_file_name = "../data/src-sep-train-short.txt"
 # test_out_file_name = "../data/tgt-train-short.txt"
+train_in_file_name = "data/src-sep-train-short.txt"
+train_out_file_name = "data/tgt-train-short.txt"
+val_in_file_name = "data/src-sep-train-short.txt"
+val_out_file_name = "data/tgt-train-short.txt"
+test_in_file_name = "data/src-sep-train-short.txt"
+test_out_file_name = "data/tgt-train-short.txt"
 
 sep = ' '
 mezera = '_'
@@ -170,6 +183,29 @@ def join_dicts(dict1, dict2):
         dict[history_list[i]] = ar
     # print(dict)
     return dict
+
+def cache_dict(dictionary, filename):
+    with open(filename, 'wb') as f:
+        pickle.dump(dictionary, f)
+        print("Dict successfully cached")
+
+def load_cached_dict(filename):
+    if os.path.exists(filename):
+        with open(filename, 'rb') as f:
+            loaded_dict = pickle.load(f)
+            if loaded_dict:
+                print("Loaded dictionary from:", filename)
+                return loaded_dict
+            else:
+                print("Empty dictionary loaded from:", filename)
+                return {}
+    else:
+        print("No cached dictionary found at:", filename)
+        return {}
+
+def split_by_underscore(input_list):
+    result = [list(group) for group in ''.join(input_list).split('_') if group]
+    return result
 
 if __name__ == "__main__":
     source, target, val_source, val_target = prepare_data()

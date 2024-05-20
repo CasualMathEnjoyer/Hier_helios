@@ -1,7 +1,5 @@
 import numpy as np
 
-
-
 class Data():
     maxlen = 0
     file = ''
